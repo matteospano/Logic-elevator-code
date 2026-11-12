@@ -1,1280 +1,846 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Circuit Schematic Evolution</title>
-    <!-- Tailwind CSS for UI controls and overlays -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;600;700&display=swap');
-        body {
-            font-family: 'Fira Code', monospace;
-            background-color: #080c14;
-            color: #94a3b8;
-            overflow: hidden;
-            user-select: none;
-        }
-        /* Grid background pattern */
-        .blueprint-bg {
-            background-color: #0b0f19;
-            background-image: 
-                linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-                linear-gradient(rgba(14, 165, 233, 0.02) 5px, transparent 5px),
-                linear-gradient(90deg, rgba(14, 165, 233, 0.02) 5px, transparent 5px);
-            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
-            background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
-        }
-        canvas {
-            touch-action: none;
-        }
-        /* Custom scrollbars */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0b0f19; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #334155; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Elevator Logic Lab</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --panel: #121c2c;
+    --panel-2: #182538;
+    --panel-3: #1e3047;
+    --border: #2a3b52;
+    --text: #edf4fb;
+    --muted: #91a4bb;
+    --teal: #43d6c2;
+    --teal-dark: #123b3c;
+    --amber: #ffc65c;
+    --blue: #72b4ff;
+    --red: #ff7e85;
+    --green: #7fe0a2;
+    --floor-height: 72px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at 18% -8%, #182d49 0, var(--bg) 40%);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100vh;
+  }
+  button, select, input { font: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .screen[hidden] { display: none !important; }
+  .appbar {
+    height: 64px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(16px, 4vw, 48px); border-bottom: 1px solid #22324a;
+    background: rgba(8, 15, 29, .72); backdrop-filter: blur(12px);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -.03em; }
+  .brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; color: #082027; background: var(--teal); font-size: 18px; }
+  .brand small { display: block; font-size: 10px; color: var(--muted); letter-spacing: .16em; font-weight: 800; margin-top: 1px; }
+  .bar-right { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
+  .tiny-tag { border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; background: #101a29; }
+  .page { max-width: 1240px; padding: 32px 24px 56px; margin: 0 auto; }
+  .hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; margin-bottom: 26px; }
+  .eyebrow { color: var(--teal); font-size: 11px; font-weight: 900; letter-spacing: .19em; text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-size: clamp(29px, 4vw, 42px); margin: 0; letter-spacing: -.045em; line-height: 1.05; }
+  .hero p { color: var(--muted); line-height: 1.6; margin: 10px 0 0; max-width: 650px; font-size: 14px; }
+  .primary, .secondary, .quiet, .danger-btn {
+    border: 1px solid transparent; border-radius: 10px; font-weight: 800; padding: 12px 16px;
+    transition: transform .12s ease, filter .12s ease, border-color .12s ease;
+  }
+  .primary { color: #062428; background: var(--teal); box-shadow: 0 7px 20px #43d6c21b; }
+  .primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .secondary { background: #263b54; border-color: #3a536e; color: var(--text); }
+  .secondary:hover { border-color: var(--blue); }
+  .quiet { background: transparent; border-color: var(--border); color: #b7c6d8; padding: 9px 11px; font-size: 12px; }
+  .quiet:hover { border-color: #57718e; color: white; }
+  .danger-btn { background: #3b202b; border-color: #66313c; color: #ffb9be; padding: 9px 11px; font-size: 12px; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .config-panel, .panel {
+    border: 1px solid var(--border); background: linear-gradient(155deg, #152338, #101a2a);
+    border-radius: 16px; box-shadow: 0 14px 36px #00000016;
+  }
+  .config-panel { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 17px 20px; margin-bottom: 18px; }
+  .section-label { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+  .config-title { font-weight: 800; margin-top: 4px; }
+  .config-fields { display: flex; gap: 14px; flex-wrap: wrap; }
+  .field { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+  select, input[type="number"] {
+    color: var(--text); background: #0b1422; border: 1px solid #32465e; border-radius: 8px; padding: 8px 10px; min-width: 80px;
+  }
+  select { max-width: 100%; }
+  .workbench-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 18px; align-items: start; }
+  .panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 19px 20px; border-bottom: 1px solid var(--border); }
+  .panel-head h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+  .panel-sub { margin-top: 5px; color: var(--muted); font-size: 12px; }
+  .rules-count { color: var(--teal); border: 1px solid #245354; background: #102d31; padding: 6px 8px; font-size: 11px; border-radius: 7px; font-weight: 800; white-space: nowrap; }
+  .rules-list { padding: 10px; display: flex; flex-direction: column; gap: 9px; }
+  .rule-row {
+    display: grid; grid-template-columns: 28px minmax(145px, 1fr) 25px minmax(150px, 1.03fr) 68px;
+    align-items: stretch; gap: 7px; padding: 9px; border: 1px solid #2b4059; border-radius: 12px;
+    background: linear-gradient(100deg, #182941, #142136); min-width: 0;
+  }
+  .rule-index { color: #7a8fa8; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 5px; padding-top: 6px; font-size: 11px; font-weight: 800; }
+  .node { border: 1px solid #324960; background: #101a2a; border-radius: 9px; min-width: 0; padding: 8px; }
+  .node.event { border-top: 3px solid var(--amber); }
+  .node.action { border-top: 3px solid var(--blue); }
+  .node .node-label { display: flex; align-items: center; gap: 5px; font-weight: 900; font-size: 9px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 6px 1px; }
+  .node .node-label .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--amber); }
+  .node.action .node-label .dot { background: var(--blue); }
+  .node select { width: 100%; min-width: 0; padding: 7px 25px 7px 8px; font-size: 12px; border-color: #2e435b; }
+  .param-link { display: flex; align-items: center; gap: 5px; margin-top: 7px; color: #7892ad; font-size: 10px; }
+  .param-link span { white-space: nowrap; }
+  .param-link select { flex: 1; min-width: 0; font-size: 11px; }
+  .link-arrow { display: flex; align-items: center; justify-content: center; color: #6f8ca6; font-weight: 900; font-size: 20px; }
+  .rule-tools { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
+  .rule-tools button { padding: 4px; min-height: 23px; border-radius: 6px; background: #1c2c41; border: 1px solid #31455b; color: #b7c8da; line-height: 1; }
+  .rule-tools button:hover:not(:disabled) { color: var(--teal); border-color: #3b9a97; }
+  .rule-tools button:disabled { opacity: .25; cursor: default; }
+  .rule-tools .remove-rule { color: #ffacb0; }
+  .rules-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--border); padding: 15px 18px; }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .side-panel { display: flex; flex-direction: column; gap: 12px; }
+  .info-card { padding: 17px; }
+  .info-card h3 { font-size: 13px; margin: 0 0 9px; }
+  .info-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .starter-logic { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+  .starter-line { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 11px; line-height: 1.5; color: #b6c7d9; }
+  .starter-number { background: #223951; border-radius: 6px; text-align: center; color: var(--teal); font-weight: 900; padding: 2px 0; }
+  code { color: #a5f1e8; background: #0d252b; border: 1px solid #194148; padding: 1px 4px; border-radius: 4px; font-size: 10px; }
+  .event-chip-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .event-chip { font-size: 10px; color: #b8c8db; background: #1b2d43; border: 1px solid #2d435a; border-radius: 6px; padding: 5px 7px; }
+  .footer-note { color: #6f839c; text-align: center; font-size: 11px; margin-top: 22px; }
+
+  /* Simulation */
+  .sim-page { max-width: 1350px; margin: 0 auto; padding: 22px 24px 36px; }
+  .sim-top { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 17px; }
+  .sim-title { display: flex; align-items: center; gap: 11px; }
+  .live-dot { width: 9px; height: 9px; background: var(--green); border-radius: 50%; box-shadow: 0 0 0 5px #7fe0a218; }
+  .sim-title h1 { font-size: 23px; }
+  .sim-title p { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+  .metrics { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-bottom: 15px; }
+  .metric { border: 1px solid var(--border); background: #121e2f; border-radius: 12px; padding: 13px 15px; min-width: 0; }
+  .metric .m-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
+  .metric .m-value { font-size: 24px; font-weight: 850; font-variant-numeric: tabular-nums; letter-spacing: -.04em; margin-top: 5px; }
+  .metric .m-unit { color: #7890a9; font-size: 11px; font-weight: 500; letter-spacing: 0; }
+  .sim-layout { display: grid; grid-template-columns: minmax(0, 1fr) 305px; gap: 15px; align-items: start; }
+  .building-card { min-width: 0; border: 1px solid var(--border); border-radius: 15px; overflow: hidden; background: #101a29; }
+  .building-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 16px 19px; border-bottom: 1px solid var(--border); }
+  .building-head h2 { margin: 0; font-size: 14px; }
+  .building-head .small { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .building-legend { font-size: 10px; color: #9eb1c6; display: flex; gap: 12px; flex-wrap: wrap; }
+  .building-legend span { display: inline-flex; gap: 5px; align-items: center; }
+  .legend-square { width: 7px; height: 7px; border-radius: 2px; background: var(--teal); }
+  .legend-circle { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+  .building { display: grid; grid-template-columns: 135px minmax(0,1fr); min-height: 300px; }
+  .floor-ruler { display: flex; flex-direction: column; background: #142033; border-right: 1px solid #293d54; }
+  .floor-mark { height: var(--floor-height); flex: 0 0 var(--floor-height); border-bottom: 1px solid #2a3b50; display: flex; align-items: center; padding: 0 13px; gap: 12px; }
+  .floor-number { font-size: 19px; color: #b9c9db; font-weight: 800; width: 22px; }
+  .floor-name { font-size: 9px; color: #7087a0; text-transform: uppercase; letter-spacing: .1em; margin-top: 3px; }
+  .call-tiny { font-size: 10px; color: #b6c8db; white-space: nowrap; line-height: 1.5; }
+  .call-tiny .up { color: var(--green); }
+  .call-tiny .down { color: var(--amber); }
+  .shaft-area { display: grid; min-width: 0; background: #0e1725; }
+  .shaft { position: relative; min-width: 0; height: calc(var(--floor-count) * var(--floor-height)); border-right: 1px solid #2b3a4e; background-image: repeating-linear-gradient(to top, transparent 0 calc(var(--floor-height) - 1px), #29394e calc(var(--floor-height) - 1px) var(--floor-height)); }
+  .shaft:last-child { border-right: 0; }
+  .shaft:before, .shaft:after { content: ""; position: absolute; top: 0; bottom: 0; width: 5px; background: #27374b; opacity: .68; }
+  .shaft:before { left: 15%; } .shaft:after { right: 15%; }
+  .shaft-header { display: grid; place-items: center; padding: 10px 4px; color: #90a6be; background: #142238; border-bottom: 1px solid #2b3d54; font-size: 11px; font-weight: 800; }
+  .shaft-headers { display: grid; grid-template-columns: 135px minmax(0,1fr); border-bottom: 1px solid #2a3b50; }
+  .shaft-headers-spacer { background: #142033; border-right: 1px solid #293d54; padding: 10px 13px; font-size: 9px; font-weight: 900; letter-spacing: .12em; color: #7d92ab; }
+  .shaft-headers-inner { display: grid; }
+  .lift-car { position: absolute; z-index: 2; left: 50%; width: min(78%, 88px); height: 46px; transform: translateX(-50%); border-radius: 9px; border: 2px solid #7bf1df; background: linear-gradient(140deg,#3d8f91,#24606b); box-shadow: 0 0 0 4px #43d6c21d, 0 9px 18px #0007; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: bottom .09s linear; overflow: hidden; }
+  .lift-car:before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 100%; background: #a6fff1; opacity: .6; }
+  .lift-code { font-size: 10px; font-weight: 900; line-height: 1.2; position: relative; }
+  .lift-load { font-size: 9px; color: #d4fff7; line-height: 1.2; position: relative; }
+  .lift-car.moving { border-color: #8fbfff; background: linear-gradient(140deg,#386a99,#254768); box-shadow: 0 0 0 4px #72b4ff1e, 0 9px 18px #0007; }
+  .lift-car.doors-open { border-color: var(--amber); background: linear-gradient(140deg,#9d773e,#634a2f); box-shadow: 0 0 0 4px #ffc65c20, 0 9px 18px #0007; }
+  .sim-sidebar { display: flex; flex-direction: column; gap: 13px; min-width: 0; }
+  .side-card { border: 1px solid var(--border); border-radius: 14px; background: #121e2f; overflow: hidden; }
+  .side-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 15px; border-bottom: 1px solid var(--border); }
+  .side-card-head h3 { font-size: 13px; margin: 0; }
+  .side-card-head span { color: var(--muted); font-size: 10px; }
+  .queue-list { display: flex; flex-direction: column; padding: 6px 12px 10px; gap: 1px; max-height: 270px; overflow: auto; }
+  .queue-item { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #223249; font-size: 11px; }
+  .queue-item:last-child { border-bottom: 0; }
+  .queue-floor { color: var(--amber); font-weight: 900; background: #3b3020; border-radius: 6px; padding: 6px 4px; text-align: center; }
+  .queue-route { color: #d6e3f1; font-weight: 700; }
+  .queue-sub { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; font-weight: 400; }
+  .queue-wait { color: #8ca4bd; font-size: 10px; white-space: nowrap; }
+  .empty-state { color: #7d93ab; padding: 20px 8px; font-size: 12px; line-height: 1.6; text-align: center; }
+  .event-log { padding: 7px 14px 12px; display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow: auto; }
+  .log-entry { display: grid; grid-template-columns: 34px 1fr; gap: 8px; color: #9eb2c8; font-size: 10px; line-height: 1.5; }
+  .log-time { color: #6f8ba8; font-variant-numeric: tabular-nums; }
+  .log-entry strong { color: #dce8f4; font-weight: 750; }
+  .sim-bottom { margin-top: 15px; border: 1px solid var(--border); background: #121e2e; border-radius: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 16px; }
+  .sim-status { color: #9cb0c6; font-size: 11px; line-height: 1.5; }
+  .sim-status strong { color: var(--teal); }
+  .result-banner { border: 1px solid #31716c; background: linear-gradient(110deg,#123939,#142b35); border-radius: 14px; margin-top: 14px; padding: 18px; display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+  .result-banner h2 { margin: 0 0 5px; font-size: 19px; }
+  .result-banner p { color: #b7d6d5; margin: 0; font-size: 12px; line-height: 1.5; }
+  .result-score { font-size: 30px; font-weight: 900; color: var(--teal); white-space: nowrap; }
+  .sim-note { color: #637c97; font-size: 10px; margin-top: 11px; line-height: 1.5; }
+  @media (max-width: 1000px) {
+    .workbench-layout, .sim-layout { grid-template-columns: 1fr; }
+    .side-panel { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .sim-sidebar { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  }
+  @media (max-width: 720px) {
+    .page, .sim-page { padding: 20px 12px 34px; }
+    .hero { align-items: flex-start; flex-direction: column; }
+    .config-panel { align-items: flex-start; flex-direction: column; }
+    .config-fields { width: 100%; }
+    .field { justify-content: space-between; flex: 1; min-width: 125px; }
+    .rule-row { grid-template-columns: 24px 1fr 18px 1fr 28px; padding: 6px; gap: 4px; }
+    .node { padding: 6px; }
+    .node select { font-size: 11px; padding: 7px 18px 7px 6px; }
+    .node .node-label { font-size: 8px; }
+    .param-link { align-items: stretch; flex-direction: column; gap: 3px; }
+    .rule-tools { gap: 4px; }
+    .rule-tools button { padding: 3px 2px; }
+    .link-arrow { font-size: 15px; }
+    .side-panel, .sim-sidebar { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .metric:first-child { grid-column: span 2; }
+    .metric .m-value { font-size: 21px; }
+    .building { grid-template-columns: 94px minmax(0,1fr); }
+    .shaft-headers { grid-template-columns: 94px minmax(0,1fr); }
+    .shaft-headers-spacer { padding: 8px; }
+    .floor-mark { padding: 0 8px; gap: 6px; }
+    .floor-number { font-size: 16px; width: 17px; }
+    .call-tiny { font-size: 9px; }
+    .lift-car { width: 80%; height: 42px; }
+    .sim-top { align-items: flex-start; flex-direction: column; }
+    .result-banner, .sim-bottom { align-items: flex-start; flex-direction: column; }
+  }
+  @media (max-width: 440px) {
+    .rule-row { grid-template-columns: 20px minmax(0,1fr) 14px minmax(0,1fr) 25px; }
+    .node select { font-size: 10px; }
+    .rule-tools button { font-size: 10px; }
+    .metrics { gap: 7px; }
+    .metric { padding: 11px; }
+    .building { grid-template-columns: 82px minmax(0,1fr); }
+    .shaft-headers { grid-template-columns: 82px minmax(0,1fr); }
+  }
+</style>
 </head>
-<body class="blueprint-bg h-screen w-screen flex flex-col justify-between relative overflow-hidden">
+<body>
+  <div class="appbar">
+    <div class="brand"><div class="brand-mark">⇅</div><div>Elevator Logic Lab<small>EVENT-DRIVEN SIMULATOR</small></div></div>
+    <div class="bar-right"><span class="tiny-tag">NO CODE REQUIRED</span><span class="tiny-tag">v0.1</span></div>
+  </div>
 
-    <!-- Top Blueprint Header -->
-    <header class="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 pointer-events-none">
-        <div class="bg-slate-900/80 backdrop-blur border border-cyan-500/30 p-3 rounded-lg shadow-lg pointer-events-auto flex items-center gap-3">
-            <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></div>
-            <div>
-                <h1 class="text-sm font-bold text-cyan-400 tracking-wider uppercase">Project: Logic Graph Schematic</h1>
-                <p class="text-xs text-slate-400" id="status-text">Phase 1: Basic Closed Wire Loop</p>
-            </div>
-        </div>
-
-        <div class="bg-slate-900/80 backdrop-blur border border-slate-700/50 p-2 rounded-lg shadow-lg pointer-events-auto flex items-center gap-2">
-            <button id="btn-zoom-in" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 transition font-bold" title="Zoom In">+</button>
-            <button id="btn-zoom-out" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 transition font-bold" title="Zoom Out">-</button>
-            <button id="btn-reset-view" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 transition text-xs font-bold px-3">RESET VIEW</button>
-        </div>
-    </header>
-
-    <!-- Canvas Container -->
-    <main class="w-full h-full relative cursor-grab active:cursor-grabbing" id="canvas-container">
-        <canvas id="schematicCanvas" class="w-full h-full block"></canvas>
-    </main>
-
-    <!-- Node Hover Card / Upgrade Modal Sidebar -->
-    <div id="hover-card" class="absolute bottom-6 left-6 z-10 w-80 bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-2xl transition-all duration-200 transform translate-y-4 opacity-0 pointer-events-none">
-        <div class="flex justify-between items-start mb-2">
-            <span id="card-type" class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">Node Component</span>
-            <span id="card-tier" class="text-[10px] text-amber-400 font-semibold">Tier 1</span>
-        </div>
-        <h3 id="card-title" class="text-base font-bold text-slate-100 mb-1">Component Name</h3>
-        <p id="card-desc" class="text-xs text-slate-300 leading-relaxed mb-3">Description of the module evolution and structural changes.</p>
-        
-        <div id="card-prereq-container" class="mb-3 hidden">
-            <div class="text-[10px] uppercase tracking-wider text-rose-400 font-semibold mb-1">Prerequisites Required:</div>
-            <ul id="card-prereq-list" class="text-xs text-rose-300/80 list-disc list-inside"></ul>
-        </div>
-
-        <div id="card-action-prompt" class="text-xs font-bold text-cyan-400 bg-cyan-950/50 p-2 rounded border border-cyan-800/50 text-center animate-pulse">
-            Click Node to Evolve Component
-        </div>
+  <!-- Workbench is intentionally the only visible screen until the simulation is launched. -->
+  <main id="workbenchScreen" class="screen page">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Control room / 01</div>
+        <h1>Program your elevators.</h1>
+        <p>Connect events to actions using simple, ordered rules. Then run a 60-second rush and see how many passengers your controller can deliver.</p>
+      </div>
+      <button class="primary" id="runSimulation">▶ Run simulation <span aria-hidden="true">↗</span></button>
     </div>
 
-    <!-- Late Game Telemetry Controller Pad (Appears when RF Controller is unlocked) -->
-    <div id="remote-controller" class="absolute bottom-6 right-6 z-10 bg-slate-900/90 backdrop-blur-md border border-amber-500/40 p-4 rounded-xl shadow-2xl transition-all duration-500 opacity-0 pointer-events-none translate-y-10">
-        <div class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-            <span>RF Telemetry Link</span>
-            <span id="rf-status" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+    <section class="config-panel" aria-label="Simulation settings">
+      <div><div class="section-label">Building setup</div><div class="config-title">Choose your lift system</div></div>
+      <div class="config-fields">
+        <label class="field">Elevators
+          <select id="elevatorCount"><option value="1">1 elevator</option><option value="2" selected>2 elevators</option><option value="3">3 elevators</option><option value="4">4 elevators</option></select>
+        </label>
+        <label class="field">Floors
+          <select id="floorCount"><option value="3">3 floors</option><option value="4">4 floors</option><option value="5" selected>5 floors</option><option value="6">6 floors</option><option value="7">7 floors</option><option value="8">8 floors</option></select>
+        </label>
+        <div class="field"><span>Run length</span><span class="tiny-tag">60 seconds</span></div>
+      </div>
+    </section>
+
+    <div class="workbench-layout">
+      <section class="panel" aria-label="Logic rules">
+        <div class="panel-head">
+          <div><h2>Controller rules</h2><div class="panel-sub">Each row connects an event → condition → action and its parameter.</div></div>
+          <div class="rules-count" id="rulesCount">5 RULES</div>
         </div>
-        <div class="grid grid-cols-3 gap-2 w-36 h-36 mx-auto">
-            <div></div>
-            <button id="btn-up" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">▲</button>
-            <div></div>
-            <button id="btn-left" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">◄</button>
-            <div class="bg-slate-950 border border-cyan-900/50 rounded-lg flex items-center justify-center text-[9px] text-cyan-500 font-bold">MATRIX</div>
-            <button id="btn-right" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">►</button>
-            <div></div>
-            <button id="btn-down" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">▼</button>
-            <div></div>
+        <div class="rules-list" id="rulesList"></div>
+        <div class="rules-footer">
+          <div class="hint">Rules are evaluated from top to bottom. Matching rules can all run for the same event.</div>
+          <div class="btn-row"><button class="quiet" id="resetRules">Restore starter logic</button><button class="secondary" id="addRule">＋ Add rule</button></div>
         </div>
-        <div class="text-[10px] text-slate-400 text-center mt-2">Send RF Command Signal</div>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel info-card">
+          <div class="section-label">Starter controller</div>
+          <h3>What these rules do</h3>
+          <div class="starter-logic">
+            <div class="starter-line"><span class="starter-number">1</span><span>Send the closest available lift to a newly pressed up/down hall button.</span></div>
+            <div class="starter-line"><span class="starter-number">2</span><span>Queue each passenger's destination when they board.</span></div>
+            <div class="starter-line"><span class="starter-number">3</span><span>When idle, travel to the next passenger stop or nearest waiting call.</span></div>
+            <div class="starter-line"><span class="starter-number">4</span><span>Open doors whenever the lift reaches a target floor.</span></div>
+          </div>
+        </section>
+        <section class="panel info-card">
+          <div class="section-label">Available events</div>
+          <h3>When can a rule fire?</h3>
+          <p>Events are emitted by the building or by a lift. Some include context such as the called floor or a passenger's chosen destination.</p>
+          <div class="event-chip-wrap">
+            <span class="event-chip">On Start</span><span class="event-chip">On Idle</span><span class="event-chip">On Up Button Pressed</span><span class="event-chip">On Down Button Pressed</span><span class="event-chip">On Floor Button Pressed</span><span class="event-chip">On Passing Floor</span><span class="event-chip">On Stopping At Floor</span>
+          </div>
+        </section>
+        <section class="panel info-card">
+          <div class="section-label">Parameter links</div>
+          <h3>Give an action its value</h3>
+          <p>For actions that need a floor, use the parameter dropdown: for example <code>Go to floor</code> ← <code>Current floor + 1</code>, or <code>Queue floor</code> ← <code>Passenger destination</code>.</p>
+        </section>
+      </aside>
+    </div>
+    <div class="footer-note">Tip: start with the default controller, run a test, then change one rule at a time to see how it affects transport and waiting time.</div>
+  </main>
+
+  <!-- Simulation screen: the workbench is hidden while this screen is active. -->
+  <main id="simulationScreen" class="screen sim-page" hidden>
+    <div class="sim-top">
+      <div class="sim-title"><span class="live-dot" id="liveDot"></span><div><h1 id="simHeading">Rush-hour simulation</h1><p id="simSubheading">Your controller is live. Calls will arrive automatically.</p></div></div>
+      <div class="btn-row"><button class="quiet" id="backToWorkbench">← Edit logic</button><button class="secondary" id="runAgain">↻ Run again</button></div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="m-label">Passengers delivered</div><div class="m-value" id="metricTransported">0 <span class="m-unit">people</span></div></div>
+      <div class="metric"><div class="m-label">Time remaining</div><div class="m-value" id="metricTime">60.0 <span class="m-unit">s</span></div></div>
+      <div class="metric"><div class="m-label">Delivery rate</div><div class="m-value" id="metricRate">0.00 <span class="m-unit">/s</span></div></div>
+      <div class="metric"><div class="m-label">Average wait</div><div class="m-value" id="metricWait">— <span class="m-unit">s</span></div></div>
+      <div class="metric"><div class="m-label">Moves</div><div class="m-value" id="metricMoves">0</div></div>
     </div>
 
-    <!-- Legend Footer -->
-    <footer class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/80 backdrop-blur border border-slate-800 px-4 py-2 rounded-full text-xs flex gap-4 pointer-events-auto">
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="text-slate-300">Power Trace</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span><span class="text-slate-300">Logic Bus</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span><span class="text-slate-300">Clock & PWM</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-fuchsia-400"></span><span class="text-slate-300">High Voltage</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="text-slate-300">Wireless Telemetry</span></div>
-    </footer>
+    <div class="sim-layout">
+      <section class="building-card">
+        <div class="building-head"><div><h2>Building overview</h2><div class="small" id="buildingSubtitle">5 floors · 2 elevators · doors and calls shown live</div></div><div class="building-legend"><span><i class="legend-square"></i> Elevator</span><span><i class="legend-circle"></i> Waiting call</span></div></div>
+        <div class="shaft-headers"><div class="shaft-headers-spacer">FLOOR / CALLS</div><div class="shaft-headers-inner" id="shaftHeaders"></div></div>
+        <div class="building" id="building">
+          <div class="floor-ruler" id="floorRuler"></div>
+          <div class="shaft-area" id="shaftArea"></div>
+        </div>
+      </section>
+      <aside class="sim-sidebar">
+        <section class="side-card"><div class="side-card-head"><h3>Waiting passengers</h3><span id="waitingCount">0 waiting</span></div><div class="queue-list" id="queueList"><div class="empty-state">Waiting for the first call…</div></div></section>
+        <section class="side-card"><div class="side-card-head"><h3>Event feed</h3><span>LIVE</span></div><div class="event-log" id="eventLog"><div class="empty-state">Controller events will appear here.</div></div></section>
+      </aside>
+    </div>
+    <div class="sim-bottom"><div class="sim-status" id="simStatus"><strong>Controller active.</strong> Waiting for the first passenger call.</div><div class="btn-row"><button class="quiet" id="stopSimulation">Stop simulation</button><button class="primary" id="editAfterRun" hidden>Review logic →</button></div></div>
+    <div class="result-banner" id="resultBanner" hidden><div><h2 id="resultTitle">Simulation complete</h2><p id="resultText">Your controller delivered passengers in 60 seconds.</p></div><div class="result-score" id="resultScore">0 delivered</div></div>
+    <div class="sim-note">Time in the simulation advances at 2× real time, so each 60-second test takes around 30 seconds. The final second stops new calls and records the score.</div>
+  </main>
 
-    <script>
-        // --- GAME ENGINE & SCHEMATIC LOGIC ---
-        const canvas = document.getElementById('schematicCanvas');
-        const ctx = canvas.getContext('2d');
-        const container = document.getElementById('canvas-container');
+<script>
+(() => {
+  "use strict";
 
-        let width = canvas.width = container.clientWidth;
-        let height = canvas.height = container.clientHeight;
+  const $ = (id) => document.getElementById(id);
+  const EVENT_OPTIONS = [
+    "On Start", "On Idle", "On Up Button Pressed", "On Down Button Pressed",
+    "On Floor Button Pressed", "On Passing Floor", "On Stopping At Floor"
+  ];
+  const CONDITION_OPTIONS = [
+    "Always", "Elevator is empty", "Elevator has passengers",
+    "Closest available elevator", "Moving up", "Moving down"
+  ];
+  const ACTION_OPTIONS = ["Go to floor", "Queue floor", "Open doors", "Close doors", "Stop"];
+  const BASE_PARAMETERS = [
+    "Next destination", "Closest hall call", "Calling floor", "Passenger destination",
+    "Current floor", "Current floor + 1", "Current floor - 1"
+  ];
+  const floorHeight = 72;
+  const SIM_DURATION = 60;
+  const DT = 0.12; // simulated seconds per update; at 50ms per update this is 2.4x wall time
+  const TICK_MS = 50;
+  const CAPACITY = 4;
+  const TRAVEL_SECONDS_PER_FLOOR = 1.05;
+  const DOOR_SECONDS = 0.72;
 
-        let scale = 1.0;
-        let panX = width / 2 - 100;
-        let panY = height / 2;
-        let isDragging = false;
-        let startPanX = 0, startPanY = 0;
-        let hoveredNode = null;
-        let animationFrameId = null;
+  let config = { elevatorCount: 2, floorCount: 5 };
+  let nextRuleId = 1;
+  let rules = defaultRules();
+  let sim = null;
+  let timerId = null;
 
-        // Particle System Pools
-        let electronParticles = [];
-        let heatParticles = [];
-        let rfWaves = [];
-        let actuatorSparks = [];
+  function rule(event, condition, action, param = "") {
+    return { id: nextRuleId++, event, condition, action, param };
+  }
 
-        // Servo Actuator Motion States
-        const servoStates = {
-            fl: { tilt: 0, vibe: 0 },
-            fr: { tilt: 0, vibe: 0 },
-            rl: { tilt: 0, vibe: 0 },
-            rr: { tilt: 0, vibe: 0 }
+  function defaultRules() {
+    nextRuleId = 1;
+    return [
+      rule("On Up Button Pressed", "Closest available elevator", "Go to floor", "Calling floor"),
+      rule("On Down Button Pressed", "Closest available elevator", "Go to floor", "Calling floor"),
+      rule("On Floor Button Pressed", "Always", "Queue floor", "Passenger destination"),
+      rule("On Idle", "Always", "Go to floor", "Next destination"),
+      rule("On Stopping At Floor", "Always", "Open doors")
+    ];
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[ch]);
+  }
+
+  function parameterOptions() {
+    const options = [...BASE_PARAMETERS];
+    for (let f = 0; f < config.floorCount; f++) options.push(`Floor ${f}`);
+    return options;
+  }
+
+  function renderRules() {
+    const list = $("rulesList");
+    $("rulesCount").textContent = `${rules.length} RULE${rules.length === 1 ? "" : "S"}`;
+    const params = parameterOptions();
+    list.innerHTML = rules.map((r, index) => {
+      const needsParam = r.action === "Go to floor" || r.action === "Queue floor";
+      if (needsParam && !params.includes(r.param)) r.param = r.action === "Queue floor" ? "Passenger destination" : "Next destination";
+      const selectHtml = (field, options, selected) => `<select data-rule="${r.id}" data-field="${field}" aria-label="${field}">${options.map(v => `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>`;
+      return `
+        <div class="rule-row" data-rule-row="${r.id}">
+          <div class="rule-index"><span>${String(index + 1).padStart(2, "0")}</span><span>●</span></div>
+          <div class="node event"><div class="node-label"><i class="dot"></i> When event</div>${selectHtml("event", EVENT_OPTIONS, r.event)}</div>
+          <div class="link-arrow" title="If condition is true">→</div>
+          <div class="node action"><div class="node-label"><i class="dot"></i> Then action</div>${selectHtml("action", ACTION_OPTIONS, r.action)}
+            ${needsParam ? `<div class="param-link"><span>F ←</span>${selectHtml("param", params, r.param)}</div>` : ""}
+          </div>
+          <div class="rule-tools">
+            <button type="button" data-move="up" data-id="${r.id}" aria-label="Move rule up" title="Move up" ${index === 0 ? "disabled" : ""}>↑</button>
+            <button type="button" data-move="down" data-id="${r.id}" aria-label="Move rule down" title="Move down" ${index === rules.length - 1 ? "disabled" : ""}>↓</button>
+            <button type="button" class="remove-rule" data-remove="${r.id}" aria-label="Remove rule" title="Remove rule">×</button>
+          </div>
+          <div class="rule-condition" style="grid-column:2 / 5; display:grid; grid-template-columns:minmax(0,1fr) 25px minmax(0,1fr); gap:7px; align-items:center; margin-top:-2px;">
+            <div style="color:#8fa3ba; font-size:10px; padding-left:3px;">IF / condition</div><span style="text-align:center;color:#526e8a;font-size:10px;">◇</span><div>${selectHtml("condition", CONDITION_OPTIONS, r.condition)}</div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  $("rulesList").addEventListener("change", (event) => {
+    const target = event.target;
+    const id = Number(target.dataset.rule);
+    const field = target.dataset.field;
+    if (!id || !field) return;
+    const item = rules.find(r => r.id === id);
+    if (!item) return;
+    item[field] = target.value;
+    if (field === "action") {
+      if (!["Go to floor", "Queue floor"].includes(item.action)) item.param = "";
+      else if (!parameterOptions().includes(item.param)) item.param = item.action === "Queue floor" ? "Passenger destination" : "Next destination";
+    }
+    renderRules();
+  });
+
+  $("rulesList").addEventListener("click", (event) => {
+    const moveButton = event.target.closest("[data-move]");
+    const removeButton = event.target.closest("[data-remove]");
+    if (moveButton) {
+      const id = Number(moveButton.dataset.id);
+      const index = rules.findIndex(r => r.id === id);
+      const nextIndex = index + (moveButton.dataset.move === "up" ? -1 : 1);
+      if (index >= 0 && nextIndex >= 0 && nextIndex < rules.length) {
+        [rules[index], rules[nextIndex]] = [rules[nextIndex], rules[index]];
+        renderRules();
+      }
+    }
+    if (removeButton) {
+      rules = rules.filter(r => r.id !== Number(removeButton.dataset.remove));
+      renderRules();
+    }
+  });
+
+  $("addRule").addEventListener("click", () => {
+    rules.push(rule("On Idle", "Always", "Go to floor", "Next destination"));
+    renderRules();
+  });
+  $("resetRules").addEventListener("click", () => {
+    rules = defaultRules();
+    renderRules();
+  });
+  $("elevatorCount").addEventListener("change", () => {
+    config.elevatorCount = Number($("elevatorCount").value);
+    renderRules();
+  });
+  $("floorCount").addEventListener("change", () => {
+    config.floorCount = Number($("floorCount").value);
+    renderRules();
+  });
+
+  function showScreen(which) {
+    $("workbenchScreen").hidden = which !== "workbench";
+    $("simulationScreen").hidden = which !== "simulation";
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+  function randomFloat(min, max) { return Math.random() * (max - min) + min; }
+
+  function startSimulation() {
+    if (timerId) clearInterval(timerId);
+    config.elevatorCount = Number($("elevatorCount").value);
+    config.floorCount = Number($("floorCount").value);
+    sim = {
+      time: 0, remaining: SIM_DURATION, transported: 0, moves: 0,
+      waitTotal: 0, boardedCount: 0, people: [], nextPassengerId: 1,
+      spawnIn: 0.75, logs: [], running: true, finished: false,
+      elevators: Array.from({ length: config.elevatorCount }, (_, i) => {
+        const startFloor = config.elevatorCount === 1 ? 0 : Math.round(i * (config.floorCount - 1) / (config.elevatorCount - 1));
+        return {
+          id: i + 1, floor: startFloor, target: null, direction: 0,
+          doorsOpen: false, doorTimer: 0, onboard: [], stops: [], idleState: false,
+          carEl: null, shaftEl: null
         };
+      })
+    };
+    $("resultBanner").hidden = true;
+    $("editAfterRun").hidden = true;
+    $("stopSimulation").hidden = false;
+    $("liveDot").style.background = "var(--green)";
+    $("simHeading").textContent = "Rush-hour simulation";
+    $("simSubheading").textContent = "Your controller is live. Calls will arrive automatically.";
+    $("simStatus").innerHTML = "<strong>Controller active.</strong> Waiting for the first passenger call.";
+    $("eventLog").innerHTML = "";
+    $("queueList").innerHTML = "";
+    buildBuilding();
+    showScreen("simulation");
+    sim.elevators.forEach(lift => runRules(lift, "On Start", {}));
+    logEvent("SYSTEM", "Controller started. Passenger calls are enabled.");
+    drawSimulation();
+    timerId = setInterval(tick, TICK_MS);
+  }
 
-        // --- EXPANDED DECOMPOSED NODE TREE DEFINITIONS ---
-        const nodesData = {
-            // 1. MAIN POWER SECTION
-            "power_source": {
-                id: "power_source",
-                x: -420, y: 0,
-                stage: 0,
-                maxStage: 3,
-                stages: [
-                    { title: "Coin Cell Battery", type: "Power Primary", desc: "3V CR2032 Lithium Cell providing base potential.", symbol: "battery_coin" },
-                    { title: "Dual AA Series Cell", type: "Power Primary", desc: "Dual cell connection boosting supply current.", symbol: "battery_aa" },
-                    { title: "Li-Ion Battery Module", type: "Power Pack", desc: "Rechargeable 7.4V LiPo pack with balancing protection.", symbol: "battery_lipo" },
-                    { title: "Dual Rail USB & Li-Ion", type: "Hybrid Supply", desc: "Primary high-capacity battery bank with dual power leads.", symbol: "power_usb" }
-                ],
-                prereqs: [],
-                children: ["power_transformer", "protection_block", "switch_module"]
-            },
-            "power_transformer": {
-                id: "power_transformer",
-                x: -420, y: -160,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "Buck Step-Down Converter", type: "Voltage Regulator", desc: "Smooths voltage rails sitting directly in parallel with battery.", symbol: "buck_regulator" },
-                    { title: "Peak Voltage Transformer", type: "Substation Module", desc: "High-capacity voltage transformer & peak spike suppressor.", symbol: "transformer_module" },
-                    { title: "Dual Rail Substation Matrix", type: "Power Distribution", desc: "Multi-tap power substation feeding primary board logic & actuators.", symbol: "substation_array" }
-                ],
-                prereqs: [ { node: "power_source", stage: 1 } ],
-                children: ["heatsink_bus"]
-            },
-            "protection_block": {
-                id: "protection_block",
-                x: -280, y: -160,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "Inline Carbon Resistor", type: "Passive", desc: "Limits current flow to protect fragile filament load.", symbol: "resistor" },
-                    { title: "Fuse & Potentiometer", type: "Protection", desc: "Overcurrent blow-fuse with adjustable manual potentiometer.", symbol: "fuse_pot" },
-                    { title: "Decoupling Filter Array", type: "Filtering", desc: "Bank of ceramic & electrolytic capacitors to suppress ripple.", symbol: "filter_array" }
-                ],
-                prereqs: [ { node: "power_source", stage: 1 } ],
-                children: ["heatsink_bus"]
-            },
-            "heatsink_bus": {
-                id: "heatsink_bus",
-                x: -350, y: -280,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Passive Aluminum Sink V1", type: "Thermal Dissipator", desc: "Basic extruded fin block dispersing low thermal energy.", symbol: "heatsink_v1" },
-                    { title: "Active Dual-Fan Heatsink V2", type: "Active Thermal Unit", desc: "High-surface copper-core sink with twin cooling micro-fans radiating heat.", symbol: "heatsink_v2" }
-                ],
-                prereqs: [ { node: "power_transformer", stage: 0 }, { node: "protection_block", stage: 1 } ],
-                children: []
-            },
+  function buildBuilding() {
+    $("buildingSubtitle").textContent = `${config.floorCount} floors · ${config.elevatorCount} elevator${config.elevatorCount === 1 ? "" : "s"} · doors and calls shown live`;
+    const ruler = $("floorRuler");
+    const shaftArea = $("shaftArea");
+    const headers = $("shaftHeaders");
+    ruler.innerHTML = "";
+    shaftArea.innerHTML = "";
+    headers.innerHTML = "";
+    shaftArea.style.gridTemplateColumns = `repeat(${config.elevatorCount}, minmax(70px, 1fr))`;
+    shaftArea.style.setProperty("--floor-count", config.floorCount);
+    shaftArea.style.setProperty("--floor-height", `${floorHeight}px`);
+    shaftArea.style.height = `${config.floorCount * floorHeight}px`;
+    shaftArea.style.background = "#0e1725";
+    headers.style.gridTemplateColumns = `repeat(${config.elevatorCount}, minmax(70px, 1fr))`;
+    for (let floor = config.floorCount - 1; floor >= 0; floor--) {
+      const mark = document.createElement("div");
+      mark.className = "floor-mark";
+      mark.innerHTML = `<div><div class="floor-number">${floor}</div><div class="floor-name">${floor === 0 ? "Ground" : `Floor ${floor}`}</div></div><div class="call-tiny" id="callFloor${floor}"></div>`;
+      ruler.appendChild(mark);
+    }
+    for (let i = 0; i < config.elevatorCount; i++) {
+      const title = document.createElement("div");
+      title.className = "shaft-header";
+      title.textContent = `Elevator ${i + 1}`;
+      headers.appendChild(title);
+      const shaft = document.createElement("div");
+      shaft.className = "shaft";
+      shaft.style.setProperty("--floor-count", config.floorCount);
+      shaft.style.setProperty("--floor-height", `${floorHeight}px`);
+      const car = document.createElement("div");
+      car.className = "lift-car";
+      car.innerHTML = `<div class="lift-code">L${i + 1}</div><div class="lift-load">0 / ${CAPACITY}</div>`;
+      shaft.appendChild(car);
+      shaftArea.appendChild(shaft);
+      sim.elevators[i].shaftEl = shaft;
+      sim.elevators[i].carEl = car;
+    }
+  }
 
-            // 2. SWITCH & OSCILLATOR BRANCH
-            "switch_module": {
-                id: "switch_module",
-                x: -220, y: 160,
-                stage: 0,
-                maxStage: 3,
-                stages: [
-                    { title: "Direct Wire Lead", type: "Conductor", desc: "Simple copper trace completing the primary loop.", symbol: "wire" },
-                    { title: "Knife Switch", type: "Mechanical Switch", desc: "Manual single-pole toggle to interrupt electrical flow.", symbol: "knife_switch" },
-                    { title: "Transistor NPN Switch", type: "Semiconductor", desc: "Low-voltage transistor driver enabling digital switching.", symbol: "transistor" },
-                    { title: "555 Clock Pulse Generator", type: "Timing Engine", desc: "Oscillating circuit generating steady timing pulses.", symbol: "timer_555" }
-                ],
-                prereqs: [],
-                children: ["input_demux"]
-            },
+  function logEvent(timeLabel, message) {
+    if (!sim) return;
+    sim.logs.unshift({ time: timeLabel, message });
+    if (sim.logs.length > 9) sim.logs.length = 9;
+    if ($("eventLog")) {
+      $("eventLog").innerHTML = sim.logs.map(item => `<div class="log-entry"><span class="log-time">${escapeHtml(item.time)}</span><span>${item.message}</span></div>`).join("");
+    }
+  }
 
-            // 3. LOAD / DISPLAY BRANCH
-            "light_output": {
-                id: "light_output",
-                x: 100, y: -160,
-                stage: 0,
-                maxStage: 3,
-                stages: [
-                    { title: "Filament Lamp Bulb", type: "Load", desc: "Standard incandescent bulb emitting warm glow.", symbol: "bulb" },
-                    { title: "Dual Parallel Lamps", type: "Multi-Load Array", desc: "Two parallel bulbs sharing power load across dual leads.", symbol: "dual_bulb" },
-                    { title: "Opto-Isolated Relay Unit", type: "Actuator Driver", desc: "Solid-state optical relay switching multi-circuit loads.", symbol: "relay" },
-                    { title: "8-Diode RGB Status Array", type: "Visual Diagnostics", desc: "Multi-diode LED status matrix for diagnostic telemetry visual.", symbol: "led_array" }
-                ],
-                prereqs: [],
-                children: ["logic_gates"]
-            },
+  function timeStamp() {
+    return `${Math.max(0, sim.time).toFixed(1)}s`;
+  }
 
-            // 4. DECOMPOSED PROCESSOR & LOGIC SYSTEM BOARD (EXPANDED SUB-CIRCUIT)
-            "input_demux": {
-                id: "input_demux",
-                x: -80, y: 120,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Bus Buffer & Switch Filter", type: "Logic Interface", desc: "Cleans input signals and handles line debouncing.", symbol: "demux_buffer" },
-                    { title: "74HC138 4-to-16 Demux", type: "Input Demultiplexer", desc: "High-speed de-multiplexer routing 4 matrix key traces into logic channels.", symbol: "demux_ic" }
-                ],
-                prereqs: [ { node: "switch_module", stage: 2 } ],
-                children: ["logic_gates"]
-            },
-            "logic_gates": {
-                id: "logic_gates",
-                x: 20, y: 0,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "NAND & AND Discrete Gates", type: "Discrete Logic", desc: "Basic transistor logic evaluating primary circuit signals.", symbol: "nand_gates" },
-                    { title: "XOR / NOR Gate Matrix", type: "Gate Array", desc: "Configurable array of logic gates handling multi-way switching.", symbol: "logic_array" },
-                    { title: "ALU Arithmetic Logic Unit", type: "Core Processor", desc: "4-bit hardware ALU performing logical comparisons.", symbol: "alu_core" }
-                ],
-                prereqs: [ { node: "input_demux", stage: 0 }, { node: "light_output", stage: 1 } ],
-                children: ["clock_oscillator", "mcu_core"]
-            },
-            "clock_oscillator": {
-                id: "clock_oscillator",
-                x: 140, y: 120,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "16MHz Quartz Crystal Oscillator", type: "System Clock", desc: "Provides stable high-frequency clock pulses to CPU registers.", symbol: "crystal_osc" }
-                ],
-                prereqs: [ { node: "logic_gates", stage: 1 } ],
-                children: ["mcu_core"]
-            },
-            "mcu_core": {
-                id: "mcu_core",
-                x: 180, y: 0,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "ATmega Microcontroller Core", type: "CPU Unit", desc: "Integrated RISC microcontroller running system firmware.", symbol: "microcontroller" },
-                    { title: "Dual Core 32-bit MCU Module", type: "CPU Unit", desc: "Dual core processor handling real-time wireless & motor logic.", symbol: "dual_mcu" }
-                ],
-                prereqs: [ { node: "logic_gates", stage: 1 }, { node: "clock_oscillator", stage: 0 } ],
-                children: ["pwm_driver", "rf_transmitter"]
-            },
-            "pwm_driver": {
-                id: "pwm_driver",
-                x: 280, y: 120,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "PCA9685 16-Ch PWM Driver", type: "Motor Controller", desc: "Generates precise pulse-width modulation for servo positioning.", symbol: "pwm_ic" }
-                ],
-                prereqs: [ { node: "mcu_core", stage: 0 } ],
-                children: ["rf_transmitter"]
-            },
-            "tactile_keypad": {
-                id: "tactile_keypad",
-                x: -80, y: 260,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "4-Way Arrow Keypad Matrix", type: "Input Interface", desc: "4-button directional switch matrix driving parallel control traces.", symbol: "keypad" }
-                ],
-                prereqs: [ { node: "input_demux", stage: 0 } ],
-                children: ["input_demux"]
-            },
+  function availableLifts() {
+    return sim.elevators.filter(lift => lift.target === null && !lift.doorsOpen && lift.doorTimer <= 0);
+  }
 
-            // 5. RF TELEMETRY TRANSMITTER
-            "rf_transmitter": {
-                id: "rf_transmitter",
-                x: 380, y: 0,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "433MHz RF Transmitter V1", type: "Telemetry", desc: "Simple ASK transmitter broadcasting remote control frames.", symbol: "transmitter_v1" },
-                    { title: "Dual-Band 2.4GHz Transceiver V2", type: "Telemetry", desc: "High-speed encrypted digital transceiver module.", symbol: "transmitter_v2" }
-                ],
-                prereqs: [ { node: "mcu_core", stage: 0 }, { node: "pwm_driver", stage: 0 } ],
-                children: ["rf_receiver"]
-            },
+  function closestWaitingFloor(fromFloor) {
+    const waiting = sim.people.filter(p => p.status === "waiting");
+    if (!waiting.length) return null;
+    const floors = [...new Set(waiting.map(p => p.origin))];
+    floors.sort((a, b) => Math.abs(a - fromFloor) - Math.abs(b - fromFloor));
+    return floors[0];
+  }
 
-            // 6. DETACHED ROBOT CHASSIS SUB-CIRCUIT
-            "rf_receiver": {
-                id: "rf_receiver",
-                x: 620, y: 0,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Basic Wire Dipole Receiver V1", type: "Wireless Telemetry", desc: "Receives raw airborne telemetry frames on the robot board.", symbol: "receiver_v1" },
-                    { title: "Low-Noise Antenna Receiver V2", type: "Wireless Telemetry", desc: "Enhanced sensitivity RF receiver with low-noise amplification.", symbol: "receiver_v2" }
-                ],
-                prereqs: [ { node: "rf_transmitter", stage: 0 } ],
-                children: ["decoder_ic", "camera_module"]
-            },
-            "camera_module": {
-                id: "camera_module",
-                x: 620, y: -160,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Standard Optical Camera V1", type: "Vision Sensor", desc: "Monochrome telemetry camera with fixed optical lens.", symbol: "camera_v1" },
-                    { title: "HD Vision Lens & Flash V2", type: "Vision Sensor", desc: "High-resolution camera array with dual illuminator LEDs and wide FOV.", symbol: "camera_v2" }
-                ],
-                prereqs: [ { node: "rf_receiver", stage: 0 } ],
-                children: []
-            },
-            "decoder_ic": {
-                id: "decoder_ic",
-                x: 780, y: 0,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Dual H-Bridge Driver V1", type: "Power Actuator", desc: "Standard dual channel motor control IC.", symbol: "h_bridge_v1" },
-                    { title: "Quad MOSFET Driver Board V2", type: "Power Actuator", desc: "High-efficiency MOSFET power driver with thermal heatsinks.", symbol: "h_bridge_v2" }
-                ],
-                prereqs: [ { node: "rf_receiver", stage: 0 } ],
-                children: ["servo_fl", "servo_fr", "servo_rl", "servo_rr"]
-            },
+  function resolveParameter(lift, param, context) {
+    const current = Math.max(0, Math.min(config.floorCount - 1, Math.round(lift.floor)));
+    if (param === "Next destination") {
+      if (lift.stops.length) return lift.stops[0];
+      const onboardDest = lift.onboard.length ? lift.onboard.map(p => p.dest).sort((a, b) => Math.abs(a - lift.floor) - Math.abs(b - lift.floor))[0] : null;
+      return onboardDest !== null ? onboardDest : closestWaitingFloor(lift.floor);
+    }
+    if (param === "Closest hall call") return closestWaitingFloor(lift.floor);
+    if (param === "Calling floor") return Number.isInteger(context.callFloor) ? context.callFloor : null;
+    if (param === "Passenger destination") return Number.isInteger(context.passengerDestination) ? context.passengerDestination : null;
+    if (param === "Current floor") return current;
+    if (param === "Current floor + 1") return Math.min(config.floorCount - 1, current + 1);
+    if (param === "Current floor - 1") return Math.max(0, current - 1);
+    const floorMatch = /^Floor (\d+)$/.exec(param || "");
+    if (floorMatch) return Math.max(0, Math.min(config.floorCount - 1, Number(floorMatch[1])));
+    return null;
+  }
 
-            // 7. 4 INDEPENDENT WHEEL / SERVO ACTUATORS
-            "servo_fl": {
-                id: "servo_fl",
-                x: 940, y: -140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Front-Left Servo V1", type: "Actuator", desc: "Micro servo actuator for front-left wheel.", symbol: "servo_v1" },
-                    { title: "Heavy Metal Gear Servo V2", type: "Actuator", desc: "High-torque steel gear steering servo with position feedback.", symbol: "servo_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            },
-            "servo_fr": {
-                id: "servo_fr",
-                x: 1080, y: -140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Front-Right Servo V1", type: "Actuator", desc: "Micro servo actuator for front-right wheel.", symbol: "servo_v1" },
-                    { title: "Heavy Metal Gear Servo V2", type: "Actuator", desc: "High-torque steel gear steering servo with position feedback.", symbol: "servo_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            },
-            "servo_rl": {
-                id: "servo_rl",
-                x: 940, y: 140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Rear-Left DC Motor V1", type: "Traction Motor", desc: "Standard Brushed DC Motor.", symbol: "motor_v1" },
-                    { title: "Brushless Motor & Gearbox V2", type: "Traction Motor", desc: "High-efficiency brushless traction motor with planetary gearbox.", symbol: "motor_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            },
-            "servo_rr": {
-                id: "servo_rr",
-                x: 1080, y: 140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Rear-Right DC Motor V1", type: "Traction Motor", desc: "Standard Brushed DC Motor.", symbol: "motor_v1" },
-                    { title: "Brushless Motor & Gearbox V2", type: "Traction Motor", desc: "High-efficiency brushless traction motor with planetary gearbox.", symbol: "motor_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            }
-        };
+  function conditionMatches(lift, condition, context) {
+    if (condition === "Always") return true;
+    if (condition === "Elevator is empty") return lift.onboard.length === 0;
+    if (condition === "Elevator has passengers") return lift.onboard.length > 0;
+    if (condition === "Moving up") return lift.direction > 0;
+    if (condition === "Moving down") return lift.direction < 0;
+    if (condition === "Closest available elevator") return context.closestAvailableId === lift.id;
+    return true;
+  }
 
-        // SCHEMATIC WIRE CONNECTIONS (INCLUDES EXPANDED PROCESSOR BOARD & KEYPAD BUS)
-        const schematicTraces = [
-            // Base Loop
-            { id: "t1", from: "power_source", to: "switch_module", color: "#f59e0b", type: "power" },
-            { id: "t2", from: "switch_module", to: "light_output", color: "#38bdf8", type: "logic" },
-            { id: "t3", from: "light_output", to: "power_source", color: "#f59e0b", type: "power" },
+  function runRules(lift, eventName, context = {}) {
+    if (!sim || !rules.length) return;
+    for (const item of rules) {
+      if (item.event !== eventName) continue;
+      if (!conditionMatches(lift, item.condition, context)) continue;
+      executeAction(lift, item, context);
+    }
+  }
 
-            // Parallel Power & Transformer Branch
-            { id: "t4", from: "power_source", to: "power_transformer", color: "#f59e0b", type: "power", minStage: { power_source: 1 } },
-            { id: "t5", from: "power_transformer", to: "protection_block", color: "#e879f9", type: "hv", minStage: { power_transformer: 0 } },
-            { id: "t6", from: "power_transformer", to: "heatsink_bus", color: "#e879f9", type: "hv", minStage: { power_transformer: 0 } },
-            { id: "t7", from: "protection_block", to: "heatsink_bus", color: "#e879f9", type: "hv", minStage: { protection_block: 1 } },
-            { id: "t8", from: "power_transformer", to: "light_output", color: "#f59e0b", type: "power", minStage: { power_transformer: 1 } },
+  function setTarget(lift, floor) {
+    if (!Number.isInteger(floor)) return;
+    floor = Math.max(0, Math.min(config.floorCount - 1, floor));
+    lift.target = floor;
+    lift.direction = floor > lift.floor ? 1 : floor < lift.floor ? -1 : 0;
+    lift.idleState = false;
+  }
 
-            // Decomposed Logic Processor Board Connections
-            { id: "t9", from: "switch_module", to: "input_demux", color: "#38bdf8", type: "logic", minStage: { input_demux: 0 } },
-            { id: "t9_b", from: "input_demux", to: "logic_gates", color: "#38bdf8", type: "logic", minStage: { logic_gates: 0 } },
-            { id: "t10", from: "light_output", to: "logic_gates", color: "#38bdf8", type: "logic", minStage: { logic_gates: 0 } },
-            { id: "t_clk", from: "clock_oscillator", to: "mcu_core", color: "#c084fc", type: "clock", minStage: { clock_oscillator: 0 } },
-            { id: "t_lg_mcu", from: "logic_gates", to: "mcu_core", color: "#38bdf8", type: "logic", minStage: { mcu_core: 0 } },
-            { id: "t_pwm", from: "mcu_core", to: "pwm_driver", color: "#c084fc", type: "clock", minStage: { pwm_driver: 0 } },
+  function executeAction(lift, item, context) {
+    if (item.action === "Go to floor") {
+      const floor = resolveParameter(lift, item.param, context);
+      if (floor !== null && floor !== undefined) setTarget(lift, floor);
+    } else if (item.action === "Queue floor") {
+      const floor = resolveParameter(lift, item.param, context);
+      if (floor === null || floor === undefined) return;
+      if (!lift.stops.includes(floor)) lift.stops.push(floor);
+      lift.idleState = false;
+    } else if (item.action === "Open doors") {
+      if (lift.target === null) openDoors(lift);
+    } else if (item.action === "Close doors") {
+      lift.doorsOpen = false;
+      lift.doorTimer = 0;
+      lift.idleState = false;
+    } else if (item.action === "Stop") {
+      lift.target = null;
+      lift.direction = 0;
+      lift.idleState = false;
+    }
+  }
 
-            // Multi-Trace Matrix Keypad Lines (4 distinct parallel paths into Demux Buffer)
-            { id: "t11_up", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: -12, minStage: { tactile_keypad: 0 } },
-            { id: "t11_dn", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: -4, minStage: { tactile_keypad: 0 } },
-            { id: "t11_lt", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: 4, minStage: { tactile_keypad: 0 } },
-            { id: "t11_rt", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: 12, minStage: { tactile_keypad: 0 } },
+  function spawnPassenger() {
+    const origin = randomInt(0, config.floorCount - 1);
+    let dest = randomInt(0, config.floorCount - 2);
+    if (dest >= origin) dest++;
+    const person = {
+      id: sim.nextPassengerId++, origin, dest, createdAt: sim.time,
+      status: "waiting", liftId: null, boardedAt: null
+    };
+    sim.people.push(person);
+    const direction = dest > origin ? 1 : -1;
+    const event = direction > 0 ? "On Up Button Pressed" : "On Down Button Pressed";
+    const available = availableLifts();
+    let closest = null;
+    if (available.length) {
+      available.sort((a, b) => Math.abs(a.floor - origin) - Math.abs(b.floor - origin));
+      closest = available[0].id;
+    }
+    const context = { callFloor: origin, callDirection: direction, passenger: person, closestAvailableId: closest };
+    sim.elevators.forEach(lift => runRules(lift, event, context));
+    const arrow = direction > 0 ? "↑" : "↓";
+    logEvent(timeStamp(), `<strong>Call ${person.id}</strong> · floor ${origin} ${arrow} ${dest}`);
+  }
 
-            // Wireless Bridge
-            { id: "t12", from: "mcu_core", to: "rf_transmitter", color: "#38bdf8", type: "logic", minStage: { rf_transmitter: 0 } },
-            { id: "t12_pwm", from: "pwm_driver", to: "rf_transmitter", color: "#c084fc", type: "clock", minStage: { rf_transmitter: 0 } },
-            { id: "t13", from: "rf_transmitter", to: "rf_receiver", color: "#10b981", type: "wireless", minStage: { rf_receiver: 0 } },
+  function openDoors(lift) {
+    if (lift.doorsOpen) {
+      lift.doorTimer = Math.max(lift.doorTimer, DOOR_SECONDS);
+      return;
+    }
+    lift.doorsOpen = true;
+    lift.doorTimer = DOOR_SECONDS;
+    lift.direction = 0;
+    lift.idleState = false;
+    const floor = Math.max(0, Math.min(config.floorCount - 1, Math.round(lift.floor)));
 
-            // Robot Chassis Internal Traces
-            { id: "t14", from: "rf_receiver", to: "camera_module", color: "#10b981", type: "logic", minStage: { camera_module: 0 } },
-            { id: "t15", from: "rf_receiver", to: "decoder_ic", color: "#10b981", type: "logic", minStage: { decoder_ic: 0 } },
-            { id: "t16_fl", from: "decoder_ic", to: "servo_fl", color: "#f59e0b", type: "power", minStage: { servo_fl: 0 } },
-            { id: "t16_fr", from: "decoder_ic", to: "servo_fr", color: "#f59e0b", type: "power", minStage: { servo_fr: 0 } },
-            { id: "t16_rl", from: "decoder_ic", to: "servo_rl", color: "#f59e0b", type: "power", minStage: { servo_rl: 0 } },
-            { id: "t16_rr", from: "decoder_ic", to: "servo_rr", color: "#f59e0b", type: "power", minStage: { servo_rr: 0 } }
-        ];
+    const delivered = lift.onboard.filter(person => person.dest === floor);
+    if (delivered.length) {
+      delivered.forEach(person => {
+        person.status = "delivered";
+        sim.transported++;
+        logEvent(timeStamp(), `<strong>Passenger ${person.id}</strong> delivered at floor ${floor} by L${lift.id}`);
+      });
+      lift.onboard = lift.onboard.filter(person => person.dest !== floor);
+      lift.stops = lift.stops.filter(stop => stop !== floor);
+    }
 
-        // --- HELPER & STATE CHECKS ---
-        function checkPrereqs(node) {
-            if (!node || !node.prereqs) return true;
-            for (let req of node.prereqs) {
-                const target = nodesData[req.node];
-                if (!target || target.stage < req.stage) return false;
-            }
-            return true;
+    let boarded = 0;
+    const waitingHere = sim.people.filter(person => person.status === "waiting" && person.origin === floor)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    for (const person of waitingHere) {
+      if (lift.onboard.length >= CAPACITY) break;
+      person.status = "onboard";
+      person.liftId = lift.id;
+      person.boardedAt = sim.time;
+      lift.onboard.push(person);
+      boarded++;
+      sim.boardedCount++;
+      sim.waitTotal += sim.time - person.createdAt;
+      runRules(lift, "On Floor Button Pressed", { passenger: person, passengerDestination: person.dest, floor });
+      logEvent(timeStamp(), `<strong>Passenger ${person.id}</strong> boards L${lift.id} → floor ${person.dest}`);
+    }
+    if (!delivered.length && !boarded) logEvent(timeStamp(), `<strong>L${lift.id}</strong> stopped at floor ${floor}`);
+  }
+
+  function finishSimulation() {
+    if (!sim || sim.finished) return;
+    sim.finished = true;
+    sim.running = false;
+    if (timerId) clearInterval(timerId);
+    timerId = null;
+    $("liveDot").style.background = "var(--amber)";
+    $("simHeading").textContent = "Simulation complete";
+    $("simSubheading").textContent = "The 60-second rush has ended. Review the score, then adjust your controller.";
+    $("simStatus").innerHTML = `<strong>Test complete.</strong> Delivered ${sim.transported} passenger${sim.transported === 1 ? "" : "s"}; ${sim.people.filter(p => p.status === "waiting").length} still waiting and ${sim.people.filter(p => p.status === "onboard").length} still in elevators.`;
+    $("stopSimulation").hidden = true;
+    $("editAfterRun").hidden = false;
+    $("resultBanner").hidden = false;
+    $("resultTitle").textContent = sim.transported >= 15 ? "Strong throughput" : sim.transported >= 8 ? "A decent first run" : "Room to optimize";
+    $("resultText").textContent = `Your rules delivered ${sim.transported} passenger${sim.transported === 1 ? "" : "s"} in 60 simulated seconds. Edit one rule at a time and compare the next run.`;
+    $("resultScore").textContent = `${sim.transported} delivered`;
+    logEvent("60.0s", "<strong>SIMULATION ENDED</strong> · final score recorded");
+    drawSimulation();
+  }
+
+  function tick() {
+    if (!sim || !sim.running || sim.finished) return;
+    sim.time = Math.min(SIM_DURATION, sim.time + DT);
+    sim.remaining = Math.max(0, SIM_DURATION - sim.time);
+
+    sim.spawnIn -= DT;
+    if (sim.spawnIn <= 0 && sim.time < SIM_DURATION - 0.5) {
+      spawnPassenger();
+      sim.spawnIn = randomFloat(1.75, 3.25);
+    }
+
+    for (const lift of sim.elevators) {
+      let arrivedThisStep = false;
+      if (lift.doorsOpen) {
+        lift.doorTimer -= DT;
+        if (lift.doorTimer <= 0) {
+          lift.doorsOpen = false;
+          lift.doorTimer = 0;
+          lift.idleState = false;
         }
-
-        function isTraceActive(trace) {
-            const fromNode = nodesData[trace.from];
-            const toNode = nodesData[trace.to];
-
-            if (!fromNode || !toNode || fromNode.stage < 0 || toNode.stage < 0) return false;
-            if (trace.minStage) {
-                for (let key in trace.minStage) {
-                    const n = nodesData[key];
-                    if (!n || n.stage < trace.minStage[key]) return false;
-                }
-            }
-            return true;
+      } else if (lift.target !== null) {
+        const delta = lift.target - lift.floor;
+        const maxTravel = DT / TRAVEL_SECONDS_PER_FLOOR;
+        if (Math.abs(delta) <= maxTravel) {
+          lift.floor = lift.target;
+          lift.target = null;
+          lift.direction = 0;
+          lift.idleState = false;
+          arrivedThisStep = true;
+          sim.moves++;
+          runRules(lift, "On Stopping At Floor", { floor: Math.round(lift.floor) });
+        } else {
+          const previousPosition = lift.floor;
+          lift.direction = delta > 0 ? 1 : -1;
+          lift.floor += Math.sign(delta) * maxTravel;
+          let crossedFloor = null;
+          if (lift.direction > 0 && Math.floor(previousPosition + 1e-6) < Math.floor(lift.floor + 1e-6)) {
+            crossedFloor = Math.floor(lift.floor + 1e-6);
+          } else if (lift.direction < 0 && Math.ceil(previousPosition - 1e-6) > Math.ceil(lift.floor - 1e-6)) {
+            crossedFloor = Math.ceil(lift.floor - 1e-6);
+          }
+          if (crossedFloor !== null) runRules(lift, "On Passing Floor", { floor: crossedFloor });
         }
-
-        function initParticles() {
-            electronParticles = [];
-            for (let i = 0; i < 65; i++) {
-                electronParticles.push({
-                    traceIdx: Math.floor(Math.random() * schematicTraces.length),
-                    progress: Math.random(),
-                    speed: 0.003 + Math.random() * 0.004
-                });
-            }
-        }
-        initParticles();
-
-        // --- RF & SERVO KINETIC TRIGGER ---
-        function triggerRFWave(dir) {
-            const tx = nodesData["rf_transmitter"];
-            const rx = nodesData["rf_receiver"];
-            if (tx && rx && tx.stage >= 0 && rx.stage >= 0) {
-                rfWaves.push({
-                    x: tx.x, y: tx.y,
-                    targetX: rx.x, targetY: rx.y,
-                    radius: 10,
-                    maxRadius: Math.hypot(rx.x - tx.x, rx.y - tx.y),
-                    alpha: 1.0,
-                    direction: dir
-                });
-
-                const mapDirToServos = {
-                    'up': ['fl', 'fr', 'rl', 'rr'],
-                    'down': ['fl', 'fr', 'rl', 'rr'],
-                    'left': ['fl', 'rl'],
-                    'right': ['fr', 'rr']
-                };
-
-                const targets = mapDirToServos[dir] || [];
-                targets.forEach(sKey => {
-                    servoStates[sKey].tilt = (dir === 'left' ? -0.3 : (dir === 'right' ? 0.3 : (dir === 'up' ? 0.2 : -0.2)));
-                    servoStates[sKey].vibe = 14;
-
-                    const sNode = nodesData[`servo_${sKey}`];
-                    if (sNode && sNode.stage >= 0) {
-                        for (let k = 0; k < 6; k++) {
-                            actuatorSparks.push({
-                                x: sNode.x, y: sNode.y,
-                                vx: (Math.random() - 0.5) * 5,
-                                vy: (Math.random() - 0.5) * 5,
-                                radius: 2 + Math.random() * 4,
-                                life: 1.0
-                            });
-                        }
-                    }
-                });
-            }
-        }
-
-        // --- DISTINCT RENDER COMPONENT SYMBOLS FOR EVERY STAGE ---
-        function drawSymbol(ctx, symbol, x, y, stage) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = "#38bdf8";
-            ctx.fillStyle = "#38bdf8";
-
-            switch(symbol) {
-                case "battery_coin":
-                    ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.stroke();
-                    ctx.font = "10px Fira Code"; ctx.fillText("+3V", -10, 4);
-                    break;
-                case "battery_aa":
-                    ctx.strokeRect(-18, -12, 36, 24);
-                    ctx.fillRect(18, -6, 4, 12);
-                    ctx.font = "9px Fira Code"; ctx.fillText("1.5V x 2", -16, 3);
-                    break;
-                case "battery_lipo":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.strokeRect(-22, -15, 44, 30);
-                    ctx.strokeRect(-16, -10, 32, 20);
-                    ctx.font = "9px Fira Code"; ctx.fillStyle = "#f59e0b"; ctx.fillText("LiPo 7.4V", -20, 3);
-                    break;
-                case "power_usb":
-                    ctx.strokeStyle = "#f59e0b"; ctx.fillStyle = "#f59e0b";
-                    ctx.strokeRect(-24, -18, 48, 36);
-                    ctx.strokeRect(-18, -12, 12, 24);
-                    ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("HYBRID", -14, 14);
-                    break;
-
-                case "buck_regulator":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.strokeRect(-20, -16, 40, 32);
-                    ctx.beginPath(); ctx.arc(-8, 0, 6, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillStyle = "#f59e0b"; ctx.fillText("BUCK 5V", -18, 12);
-                    break;
-                case "transformer_module":
-                    ctx.strokeStyle = "#e879f9";
-                    ctx.strokeRect(-22, -18, 44, 36);
-                    ctx.beginPath(); ctx.arc(-8, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(8, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "substation_array":
-                    ctx.strokeStyle = "#e879f9"; ctx.fillStyle = "#e879f9";
-                    ctx.strokeRect(-26, -20, 52, 40);
-                    ctx.strokeRect(-20, -14, 14, 28);
-                    ctx.strokeRect(6, -14, 14, 28);
-                    break;
-
-                case "resistor":
-                    ctx.beginPath();
-                    ctx.moveTo(-20, 0); ctx.lineTo(-12, -8); ctx.lineTo(-4, 8);
-                    ctx.lineTo(4, -8); ctx.lineTo(12, 8); ctx.lineTo(20, 0);
-                    ctx.stroke();
-                    break;
-                case "fuse_pot":
-                    ctx.strokeRect(-16, -8, 32, 16);
-                    ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(22, 0); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-10, 12); ctx.lineTo(10, -12); ctx.lineTo(6, -12); ctx.stroke();
-                    break;
-                case "filter_array":
-                    for (let dx of [-8, 8]) {
-                        ctx.beginPath(); ctx.moveTo(dx, -12); ctx.lineTo(dx, 12); ctx.stroke();
-                        ctx.beginPath(); ctx.moveTo(dx-4, -12); ctx.lineTo(dx-4, 12); ctx.stroke();
-                    }
-                    break;
-
-                // Heat Sink V1 vs V2 Distinct Graphics
-                case "heatsink_v1":
-                    ctx.strokeStyle = "#e879f9";
-                    for (let i = -16; i <= 16; i += 8) {
-                        ctx.beginPath(); ctx.moveTo(i, 10); ctx.lineTo(i, -10); ctx.stroke();
-                    }
-                    ctx.strokeRect(-20, -12, 40, 24);
-                    break;
-                case "heatsink_v2":
-                    ctx.strokeStyle = "#f43f5e"; ctx.fillStyle = "#f43f5e";
-                    ctx.strokeRect(-24, -16, 48, 32);
-                    for (let i = -20; i <= 20; i += 5) {
-                        ctx.beginPath(); ctx.moveTo(i, 14); ctx.lineTo(i, -14); ctx.stroke();
-                    }
-                    // Dual Fan Circles
-                    ctx.beginPath(); ctx.arc(-10, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(10, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    const fanAngle = Date.now() / 150;
-                    ctx.beginPath(); ctx.arc(-10, 0, 5, fanAngle, fanAngle + 2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(10, 0, 5, -fanAngle, -fanAngle + 2); ctx.stroke();
-                    break;
-
-                case "wire":
-                    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(15, 0); ctx.stroke();
-                    break;
-                case "knife_switch":
-                    ctx.beginPath(); ctx.arc(-12, 0, 3, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(12, 0, 3, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(8, -12); ctx.stroke();
-                    break;
-                case "transistor":
-                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(-6, 8); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(8, -10); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, 4); ctx.lineTo(8, 10); ctx.stroke();
-                    break;
-                case "timer_555":
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.font = "9px Fira Code"; ctx.fillText("555", -8, 3);
-                    break;
-                case "bulb":
-                    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(0, -4); ctx.lineTo(6, 6); ctx.stroke();
-                    break;
-                case "dual_bulb":
-                    ctx.beginPath(); ctx.arc(-12, 0, 10, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-16, 5); ctx.lineTo(-12, -3); ctx.lineTo(-8, 5); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(12, 0, 10, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(8, 5); ctx.lineTo(12, -3); ctx.lineTo(16, 5); ctx.stroke();
-                    break;
-                case "relay":
-                    ctx.strokeRect(-16, -14, 32, 28);
-                    ctx.beginPath(); ctx.moveTo(-10, -8); ctx.lineTo(-10, 8); ctx.lineTo(0, -8); ctx.lineTo(0, 8); ctx.stroke();
-                    break;
-                case "led_array":
-                    ctx.strokeStyle = "#38bdf8"; ctx.fillStyle = "#38bdf8";
-                    for (let row = -1; row <= 1; row += 2) {
-                        for (let col = -3; col <= 3; col += 2) {
-                            ctx.beginPath(); ctx.arc(col * 6, row * 6, 2.5, 0, Math.PI*2); ctx.fill();
-                        }
-                    }
-                    ctx.strokeRect(-24, -14, 48, 28);
-                    break;
-
-                // Decomposed Processor Board Symbols
-                case "demux_buffer":
-                    ctx.strokeRect(-16, -16, 32, 32);
-                    ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 0); ctx.lineTo(-10, 10); ctx.closePath(); ctx.stroke();
-                    break;
-                case "demux_ic":
-                    ctx.strokeStyle = "#38bdf8";
-                    ctx.strokeRect(-20, -16, 40, 32);
-                    ctx.font = "8px Fira Code"; ctx.fillText("74HC138", -18, 3);
-                    break;
-                case "nand_gates":
-                    ctx.strokeRect(-18, -14, 20, 28);
-                    ctx.beginPath(); ctx.arc(2, 0, 14, -Math.PI/2, Math.PI/2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(18, 0, 3, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "logic_array":
-                    ctx.strokeRect(-22, -18, 44, 36);
-                    ctx.font = "8px Fira Code"; ctx.fillText("XOR-MATRIX", -22, 3);
-                    break;
-                case "alu_core":
-                    ctx.strokeRect(-22, -18, 44, 36);
-                    ctx.font = "9px Fira Code"; ctx.fillText("4-BIT ALU", -20, 3);
-                    break;
-                case "crystal_osc":
-                    ctx.strokeStyle = "#c084fc";
-                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.stroke();
-                    ctx.strokeRect(-8, -8, 16, 16);
-                    ctx.font = "8px Fira Code"; ctx.fillStyle = "#c084fc"; ctx.fillText("16MHz", -12, 22);
-                    break;
-                case "microcontroller":
-                    ctx.strokeRect(-22, -22, 44, 44);
-                    for (let i = -16; i <= 16; i += 8) {
-                        ctx.strokeRect(i-2, -26, 4, 4);
-                        ctx.strokeRect(i-2, 22, 4, 4);
-                    }
-                    ctx.font = "8px Fira Code"; ctx.fillText("ATmega", -15, 3);
-                    break;
-                case "dual_mcu":
-                    ctx.strokeStyle = "#38bdf8"; ctx.fillStyle = "#38bdf8";
-                    ctx.strokeRect(-24, -24, 48, 48);
-                    ctx.strokeRect(-16, -16, 14, 32); ctx.strokeRect(2, -16, 14, 32);
-                    ctx.font = "7px Fira Code"; ctx.fillText("DUAL CORE", -18, 20);
-                    break;
-                case "pwm_ic":
-                    ctx.strokeStyle = "#c084fc";
-                    ctx.strokeRect(-20, -16, 40, 32);
-                    ctx.font = "8px Fira Code"; ctx.fillStyle = "#c084fc"; ctx.fillText("PCA9685", -18, 3);
-                    break;
-                case "keypad":
-                    ctx.strokeRect(-22, -22, 44, 44);
-                    ctx.font = "10px Fira Code"; ctx.fillText("▲", -3, -8);
-                    ctx.fillText("◄", -15, 4); ctx.fillText("►", 8, 4); ctx.fillText("▼", -3, 16);
-                    break;
-
-                // Distinct RF Tx/Rx V1 vs V2
-                case "transmitter_v1":
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -30); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(0, -30, 4, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("TX 433", -14, 3);
-                    break;
-                case "transmitter_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-22, -20, 44, 40);
-                    ctx.beginPath(); ctx.moveTo(-8, -20); ctx.lineTo(-8, -34); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(8, -20); ctx.lineTo(8, -34); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("2.4G DUAL", -18, 3);
-                    break;
-                case "receiver_v1":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -30); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(0, -30, 4, 0, Math.PI*2); ctx.fill();
-                    ctx.font = "8px Fira Code"; ctx.fillText("RX 433", -14, 3);
-                    break;
-                case "receiver_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-22, -22, 44, 44);
-                    ctx.beginPath(); ctx.arc(0, -22, 10, -Math.PI, 0); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("LNA RX-2", -18, 3);
-                    break;
-
-                // Distinct Camera V1 vs V2
-                case "camera_v1":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-20, -14, 40, 28);
-                    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "camera_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-24, -16, 48, 32);
-                    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(-14, -8, 3, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(14, -8, 3, 0, Math.PI*2); ctx.fill();
-                    ctx.font = "7px Fira Code"; ctx.fillText("HD FOV", -12, 12);
-                    break;
-
-                // Distinct H-Bridge V1 vs V2
-                case "h_bridge_v1":
-                    ctx.strokeStyle = "#10b981";
-                    ctx.strokeRect(-24, -20, 48, 40);
-                    ctx.font = "9px Fira Code"; ctx.fillStyle = "#10b981"; ctx.fillText("L298N DUAL", -22, 3);
-                    break;
-                case "h_bridge_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-26, -22, 52, 44);
-                    for (let xOff of [-12, 12]) {
-                        ctx.strokeRect(xOff - 6, -14, 12, 28);
-                    }
-                    ctx.font = "7px Fira Code"; ctx.fillText("MOSFET QUAD", -22, 16);
-                    break;
-
-                // Distinct Servo V1 vs V2
-                case "servo_v1":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.strokeRect(-14, -14, 28, 28);
-                    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "servo_v2":
-                    ctx.strokeStyle = "#f59e0b"; ctx.fillStyle = "#f59e0b";
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.strokeRect(-14, -14, 28, 28);
-                    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
-                    ctx.font = "7px Fira Code"; ctx.fillText("STEEL", -10, 12);
-                    break;
-
-                // Distinct Motor V1 vs V2
-                case "motor_v1":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "9px Fira Code"; ctx.fillText("DC", -6, 3);
-                    break;
-                case "motor_v2":
-                    ctx.strokeStyle = "#f59e0b"; ctx.fillStyle = "#f59e0b";
-                    ctx.strokeRect(-18, -16, 36, 32);
-                    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "7px Fira Code"; ctx.fillText("BRUSHLESS", -18, 12);
-                    break;
-
-                default:
-                    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.stroke();
-            }
-
-            ctx.restore();
-        }
-
-        // --- MAIN CANVAS RENDER ENGINE ---
-        function render() {
-            ctx.save();
-            ctx.clearRect(0, 0, width, height);
-
-            ctx.translate(panX, panY);
-            ctx.scale(scale, scale);
-
-            // 1. PROCESSOR BOARD EXPLICIT SUB-CIRCUIT OUTLINE
-            const demuxNode = nodesData["input_demux"];
-            if (demuxNode && demuxNode.stage >= 0) {
-                ctx.save();
-                ctx.strokeStyle = "rgba(56, 189, 248, 0.25)";
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 4]);
-                ctx.strokeRect(-140, -60, 480, 240);
-                
-                ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
-                ctx.font = "10px Fira Code";
-                ctx.fillText("PROCESSOR & LOGIC SYSTEM BOARD", -125, -45);
-                ctx.restore();
-            }
-
-            // 2. ROBOT CHASSIS BOARD OUTLINE
-            const rxNode = nodesData["rf_receiver"];
-            if (rxNode && rxNode.stage >= 0) {
-                ctx.save();
-                ctx.strokeStyle = "rgba(16, 185, 129, 0.3)";
-                ctx.lineWidth = 2;
-                ctx.setLineDash([8, 6]);
-                ctx.strokeRect(550, -220, 620, 440);
-                
-                ctx.fillStyle = "rgba(16, 185, 129, 0.5)";
-                ctx.font = "10px Fira Code";
-                ctx.fillText("MOBILE ROBOT CHASSIS SUB-BOARD", 565, -200);
-
-                // Optical Camera Scan Wave Visual
-                const camNode = nodesData["camera_module"];
-                if (camNode && camNode.stage >= 0) {
-                    const scanAngle = (Date.now() / 400) % Math.PI - Math.PI/2;
-                    ctx.strokeStyle = "rgba(16, 185, 129, 0.3)";
-                    ctx.fillStyle = "rgba(16, 185, 129, 0.08)";
-                    ctx.beginPath();
-                    ctx.moveTo(camNode.x, camNode.y);
-                    ctx.arc(camNode.x, camNode.y, 80, scanAngle - 0.35, scanAngle + 0.35);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-                }
-
-                ctx.restore();
-            }
-
-            // 3. RENDER SCHEMATIC TRACES
-            for (let trace of schematicTraces) {
-                const fromNode = nodesData[trace.from];
-                const toNode = nodesData[trace.to];
-
-                if (!fromNode || !toNode || fromNode.stage < 0 || toNode.stage < 0) continue;
-                if (!isTraceActive(trace)) continue;
-
-                ctx.save();
-                ctx.lineWidth = 2.5;
-
-                if (trace.type === "wireless") {
-                    ctx.strokeStyle = "#10b981";
-                    ctx.setLineDash([4, 8]);
-                } else if (trace.type === "clock") {
-                    ctx.strokeStyle = "#c084fc";
-                } else {
-                    ctx.strokeStyle = trace.color || "#38bdf8";
-                }
-
-                const offset = trace.offset || 0;
-                ctx.beginPath();
-                ctx.moveTo(fromNode.x + offset, fromNode.y + offset);
-
-                const midX = (fromNode.x + toNode.x) / 2 + offset;
-                ctx.lineTo(midX, fromNode.y + offset);
-                ctx.lineTo(midX, toNode.y + offset);
-                ctx.lineTo(toNode.x + offset, toNode.y + offset);
-                ctx.stroke();
-
-                ctx.restore();
-            }
-
-            // 4. THERMAL HEAT DISSIPATION PARTICLES (V1 vs V2 DISPERSION)
-            const hsNode = nodesData["heatsink_bus"];
-            if (hsNode && hsNode.stage >= 0) {
-                const isV2 = hsNode.stage >= 1;
-                const spawnRate = isV2 ? 0.8 : 0.3;
-                
-                if (Math.random() < spawnRate) {
-                    heatParticles.push({
-                        x: hsNode.x + (Math.random() - 0.5) * (isV2 ? 46 : 30),
-                        y: hsNode.y - 10,
-                        vx: (Math.random() - 0.5) * (isV2 ? 1.6 : 0.6),
-                        vy: -1 - Math.random() * (isV2 ? 2.5 : 1.2),
-                        life: 1.0,
-                        size: (isV2 ? 4 : 2.5) + Math.random() * 3,
-                        color: isV2 ? "244, 63, 94" : "245, 158, 11"
-                    });
-                }
-            }
-
-            for (let i = heatParticles.length - 1; i >= 0; i--) {
-                const hp = heatParticles[i];
-                hp.x += hp.vx;
-                hp.y += hp.vy;
-                hp.life -= 0.02;
-
-                if (hp.life <= 0) {
-                    heatParticles.splice(i, 1);
-                    continue;
-                }
-
-                ctx.save();
-                ctx.fillStyle = `rgba(${hp.color}, ${hp.life * 0.7})`;
-                ctx.beginPath();
-                ctx.arc(hp.x, hp.y, hp.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-
-            // 5. ELECTRON CURRENT FLOW PARTICLES
-            for (let p of electronParticles) {
-                const trace = schematicTraces[p.traceIdx];
-                if (isTraceActive(trace)) {
-                    const fromNode = nodesData[trace.from];
-                    const toNode = nodesData[trace.to];
-
-                    p.progress += p.speed;
-                    if (p.progress > 1) p.progress = 0;
-
-                    const offset = trace.offset || 0;
-                    const midX = (fromNode.x + toNode.x) / 2 + offset;
-                    let px = fromNode.x + offset;
-                    let py = fromNode.y + offset;
-
-                    if (p.progress < 0.333) {
-                        const t = p.progress / 0.333;
-                        px = (fromNode.x + offset) + (midX - (fromNode.x + offset)) * t;
-                        py = fromNode.y + offset;
-                    } else if (p.progress < 0.666) {
-                        const t = (p.progress - 0.333) / 0.333;
-                        px = midX;
-                        py = (fromNode.y + offset) + ((toNode.y + offset) - (fromNode.y + offset)) * t;
-                    } else {
-                        const t = (p.progress - 0.666) / 0.333;
-                        px = midX + ((toNode.x + offset) - midX) * t;
-                        py = toNode.y + offset;
-                    }
-
-                    ctx.save();
-                    ctx.fillStyle = trace.color || "#38bdf8";
-                    ctx.shadowColor = trace.color || "#38bdf8";
-                    ctx.shadowBlur = 6;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            }
-
-            // 6. WIRELESS RF WAVES
-            for (let i = rfWaves.length - 1; i >= 0; i--) {
-                const wave = rfWaves[i];
-                wave.radius += 4;
-                wave.alpha = 1 - (wave.radius / wave.maxRadius);
-
-                if (wave.radius >= wave.maxRadius) {
-                    rfWaves.splice(i, 1);
-                    continue;
-                }
-
-                ctx.save();
-                ctx.strokeStyle = `rgba(16, 185, 129, ${wave.alpha})`;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(wave.x, wave.y, wave.radius, -Math.PI / 4, Math.PI / 4);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            // 7. ACTUATOR MECHANICAL KINETIC SPARKS
-            for (let i = actuatorSparks.length - 1; i >= 0; i--) {
-                const sp = actuatorSparks[i];
-                sp.x += sp.vx;
-                sp.y += sp.vy;
-                sp.life -= 0.04;
-
-                if (sp.life <= 0) {
-                    actuatorSparks.splice(i, 1);
-                    continue;
-                }
-
-                ctx.save();
-                ctx.strokeStyle = `rgba(245, 158, 11, ${sp.life})`;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.arc(sp.x, sp.y, sp.radius, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            // 8. SCHEMATIC NODES & SYMBOLS RENDER
-            for (let key in nodesData) {
-                const node = nodesData[key];
-                if (!node) continue;
-
-                if (node.stage < 0 && !checkPrereqs(node)) continue;
-
-                const isUnlocked = node.stage >= 0;
-                const canUnlock = !isUnlocked && checkPrereqs(node);
-                
-                const safeStageIdx = isUnlocked ? Math.min(node.stage, node.stages.length - 1) : 0;
-                const currentStageInfo = node.stages[safeStageIdx];
-
-                ctx.save();
-
-                // Apply Mechanical Tilt / Vibration for Wheel Servos
-                let nodeX = node.x;
-                let nodeY = node.y;
-                let nodeAngle = 0;
-
-                if (key.startsWith("servo_")) {
-                    const sKey = key.replace("servo_", "");
-                    const sState = servoStates[sKey];
-                    if (sState) {
-                        if (sState.vibe > 0) {
-                            nodeX += (Math.random() - 0.5) * sState.vibe;
-                            nodeY += (Math.random() - 0.5) * sState.vibe;
-                            sState.vibe *= 0.85;
-                            if (sState.vibe < 0.5) sState.vibe = 0;
-                        }
-                        nodeAngle = sState.tilt;
-                        sState.tilt *= 0.9;
-                    }
-                }
-
-                ctx.translate(nodeX, nodeY);
-                ctx.rotate(nodeAngle);
-
-                // Dotted Perimeter / Unlockable Glow
-                if (isUnlocked) {
-                    ctx.strokeStyle = "#38bdf8";
-                    ctx.fillStyle = "#0b1329";
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 32, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                } else if (canUnlock) {
-                    const pulse = Math.sin(Date.now() / 200) * 3;
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 32 + pulse, 0, Math.PI * 2);
-                    ctx.stroke();
-
-                    ctx.fillStyle = "rgba(245, 158, 11, 0.1)";
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 32, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                // Render Symbol inside Node
-                if (isUnlocked) {
-                    drawSymbol(ctx, currentStageInfo.symbol, 0, 0, node.stage);
-                } else {
-                    ctx.fillStyle = "#f59e0b";
-                    ctx.font = "bold 12px Fira Code";
-                    ctx.textAlign = "center";
-                    ctx.fillText("+ UNLOCK", 0, 4);
-                }
-
-                // Render Label Below Node
-                ctx.font = "10px Fira Code";
-                ctx.textAlign = "center";
-                if (isUnlocked) {
-                    ctx.fillStyle = "#94a3b8";
-                    ctx.fillText(currentStageInfo.title, 0, 48);
-                    ctx.fillStyle = "#38bdf8";
-                    ctx.fillText(`[T${node.stage + 1}/${node.maxStage + 1}]`, 0, 60);
-                } else if (canUnlock) {
-                    ctx.fillStyle = "#f59e0b";
-                    ctx.fillText("DISCOVERY NODE", 0, 48);
-                }
-
-                // Hover Ring
-                if (hoveredNode === node) {
-                    ctx.strokeStyle = "#67e8f9";
-                    ctx.lineWidth = 3;
-                    ctx.shadowColor = "#67e8f9";
-                    ctx.shadowBlur = 12;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 36, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-
-                ctx.restore();
-            }
-
-            ctx.restore();
-            animationFrameId = requestAnimationFrame(render);
-        }
-
-        // --- INTERACTION & HOVER HANDLERS ---
-        function getCanvasCoordinates(e) {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const worldX = (mouseX - panX) / scale;
-            const worldY = (mouseY - panY) / scale;
-
-            return { x: worldX, y: worldY, rawX: e.clientX, rawY: e.clientY };
-        }
-
-        function findHoveredNode(worldX, worldY) {
-            for (let key in nodesData) {
-                const node = nodesData[key];
-                if (!node || (node.stage < 0 && !checkPrereqs(node))) continue;
-
-                const dist = Math.hypot(node.x - worldX, node.y - worldY);
-                if (dist <= 35) return node;
-            }
-            return null;
-        }
-
-        // Safe Hover Card Update Logic (Prevents array freeze bug on max upgrade)
-        function updateHoverCard(node) {
-            const card = document.getElementById('hover-card');
-            if (!node) {
-                card.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
-                return;
-            }
-
-            const isUnlocked = node.stage >= 0;
-            const canUnlock = !isUnlocked && checkPrereqs(node);
-            const isMax = isUnlocked && node.stage >= node.maxStage;
-
-            // SAFE TIER ACCESS: Lock next index to stages length - 1
-            const currentIdx = Math.max(0, Math.min(node.stage, node.stages.length - 1));
-            const nextIdx = isUnlocked ? Math.min(node.stage + 1, node.stages.length - 1) : 0;
-            const displayStageInfo = isMax ? node.stages[currentIdx] : node.stages[nextIdx];
-
-            document.getElementById('card-type').innerText = displayStageInfo.type || "Component";
-            document.getElementById('card-tier').innerText = `Tier ${node.stage < 0 ? 1 : Math.min(node.stage + (isMax ? 1 : 2), node.maxStage + 1)}`;
-            document.getElementById('card-title').innerText = displayStageInfo.title;
-            document.getElementById('card-desc').innerText = displayStageInfo.desc;
-
-            const prereqContainer = document.getElementById('card-prereq-container');
-            const prereqList = document.getElementById('card-prereq-list');
-            const actionPrompt = document.getElementById('card-action-prompt');
-
-            if (!isUnlocked && !canUnlock) {
-                prereqContainer.classList.remove('hidden');
-                prereqList.innerHTML = (node.prereqs || []).map(r => {
-                    const reqNode = nodesData[r.node];
-                    const reqTitle = reqNode?.stages[r.stage]?.title || "Previous Stage";
-                    return `<li>Requires ${reqNode?.stages[0]?.title || r.node} (${reqTitle})</li>`;
-                }).join('');
-                actionPrompt.innerText = "Locked by Dependencies";
-                actionPrompt.className = "text-xs font-bold text-rose-400 bg-rose-950/50 p-2 rounded border border-rose-800/50 text-center";
-            } else {
-                prereqContainer.classList.add('hidden');
-                if (isMax) {
-                    actionPrompt.innerText = "Fully Evolved Circuit Node";
-                    actionPrompt.className = "text-xs font-bold text-emerald-400 bg-emerald-950/50 p-2 rounded border border-emerald-800/50 text-center";
-                } else {
-                    actionPrompt.innerText = isUnlocked ? "Click Node to Evolve Sub-System" : "Click Node to Unlock Circuit Branch";
-                    actionPrompt.className = "text-xs font-bold text-cyan-400 bg-cyan-950/50 p-2 rounded border border-cyan-800/50 text-center animate-pulse";
-                }
-            }
-
-            card.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
-        }
-
-        // Mouse & Interaction Controls
-        container.addEventListener('mousedown', (e) => {
-            const coords = getCanvasCoordinates(e);
-            const node = findHoveredNode(coords.x, coords.y);
-
-            if (node) {
-                if (node.stage < 0 && checkPrereqs(node)) {
-                    node.stage = 0;
-                    checkGameMilestones();
-                } else if (node.stage >= 0 && node.stage < node.maxStage) {
-                    node.stage++;
-                    checkGameMilestones();
-                }
-                updateHoverCard(node);
-            } else {
-                isDragging = true;
-                startPanX = e.clientX - panX;
-                startPanY = e.clientY - panY;
-            }
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                panX = e.clientX - startPanX;
-                panY = e.clientY - startPanY;
-            } else {
-                const coords = getCanvasCoordinates(e);
-                hoveredNode = findHoveredNode(coords.x, coords.y);
-                updateHoverCard(hoveredNode);
-            }
-        });
-
-        window.addEventListener('mouseup', () => { isDragging = false; });
-
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            const newScale = scale * zoomFactor;
-            
-            if (newScale >= 0.35 && newScale <= 2.5) {
-                const mouseX = e.clientX;
-                const mouseY = e.clientY;
-
-                panX = mouseX - (mouseX - panX) * zoomFactor;
-                panY = mouseY - (mouseY - panY) * zoomFactor;
-                scale = newScale;
-            }
-        });
-
-        document.getElementById('btn-zoom-in').onclick = () => { scale = Math.min(2.5, scale * 1.2); };
-        document.getElementById('btn-zoom-out').onclick = () => { scale = Math.max(0.35, scale / 1.2); };
-        document.getElementById('btn-reset-view').onclick = () => {
-            scale = 1.0;
-            panX = width / 2 - 100;
-            panY = height / 2;
-        };
-
-        function checkGameMilestones() {
-            const statusText = document.getElementById('status-text');
-            const rfKeypad = nodesData["tactile_keypad"];
-            const rfTx = nodesData["rf_transmitter"];
-            const controllerPad = document.getElementById('remote-controller');
-
-            let totalStages = 0;
-            let unlockedStages = 0;
-            for (let k in nodesData) {
-                totalStages += nodesData[k].maxStage + 1;
-                unlockedStages += (nodesData[k].stage + 1);
-            }
-
-            const percent = Math.floor((unlockedStages / totalStages) * 100);
-            statusText.innerText = `Schematic System Evolution: ${percent}% Complete`;
-
-            if (rfKeypad.stage >= 0 && rfTx.stage >= 0) {
-                controllerPad.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-10');
-            }
-        }
-
-        ['up', 'down', 'left', 'right'].forEach(dir => {
-            const btn = document.getElementById(`btn-${dir}`);
-            if (btn) {
-                btn.addEventListener('click', () => {
-                    triggerRFWave(dir);
-                });
-            }
-        });
-
-        window.addEventListener('resize', () => {
-            width = canvas.width = container.clientWidth;
-            height = canvas.height = container.clientHeight;
-        });
-
-        // Start Loop
-        render();
-    </script>
+      }
+      if (!arrivedThisStep && !lift.doorsOpen && lift.target === null && !lift.idleState) {
+        // Mark idle before invoking rules; an action that assigns a target resets this flag.
+        lift.idleState = true;
+        runRules(lift, "On Idle", {});
+      }
+    }
+
+    drawSimulation();
+    if (sim.time >= SIM_DURATION) finishSimulation();
+  }
+
+  function drawSimulation() {
+    if (!sim) return;
+    $("metricTransported").innerHTML = `${sim.transported} <span class="m-unit">people</span>`;
+    $("metricTime").innerHTML = `${sim.remaining.toFixed(1)} <span class="m-unit">s</span>`;
+    const elapsed = Math.max(1, sim.time);
+    $("metricRate").innerHTML = `${(sim.transported / elapsed).toFixed(2)} <span class="m-unit">/s</span>`;
+    $("metricWait").innerHTML = `${sim.boardedCount ? (sim.waitTotal / sim.boardedCount).toFixed(1) : "—"} <span class="m-unit">s</span>`;
+    $("metricMoves").textContent = sim.moves;
+
+    for (const lift of sim.elevators) {
+      if (!lift.carEl) continue;
+      lift.carEl.style.bottom = `${lift.floor * floorHeight + 12}px`;
+      lift.carEl.classList.toggle("moving", lift.target !== null && !lift.doorsOpen);
+      lift.carEl.classList.toggle("doors-open", lift.doorsOpen);
+      const route = lift.target !== null ? `→${lift.target}` : lift.stops.length ? `Next ${lift.stops[0]}` : "Ready";
+      lift.carEl.innerHTML = `<div class="lift-code">L${lift.id} · ${route}</div><div class="lift-load">${lift.onboard.length} / ${CAPACITY} aboard</div>`;
+    }
+
+    for (let floor = 0; floor < config.floorCount; floor++) {
+      const p = sim.people.filter(person => person.status === "waiting" && person.origin === floor);
+      const up = p.filter(person => person.dest > floor).length;
+      const down = p.length - up;
+      const el = $(`callFloor${floor}`);
+      if (el) el.innerHTML = `${up ? `<span class="up">↑${up}</span>` : ""}${up && down ? " " : ""}${down ? `<span class="down">↓${down}</span>` : ""}`;
+    }
+
+    const waiting = sim.people.filter(person => person.status === "waiting").sort((a, b) => a.createdAt - b.createdAt);
+    $("waitingCount").textContent = `${waiting.length} waiting`;
+    if (!waiting.length) {
+      $("queueList").innerHTML = `<div class="empty-state">No one is waiting right now. Empty minutes are good minutes.</div>`;
+    } else {
+      $("queueList").innerHTML = waiting.slice(0, 9).map(person => {
+        const arrow = person.dest > person.origin ? "↑" : "↓";
+        return `<div class="queue-item"><div class="queue-floor">F${person.origin}</div><div class="queue-route">${arrow} To floor ${person.dest}<span class="queue-sub">Passenger ${person.id}</span></div><div class="queue-wait">${(sim.time - person.createdAt).toFixed(1)}s</div></div>`;
+      }).join("");
+    }
+    if (sim.running) {
+      $("simStatus").innerHTML = `<strong>Controller active.</strong> ${waiting.length} waiting · ${sim.people.filter(p => p.status === "onboard").length} riding · calls continue until the clock reaches zero.`;
+    }
+  }
+
+  function stopAndReturn() {
+    if (timerId) clearInterval(timerId);
+    timerId = null;
+    if (sim) sim.running = false;
+    showScreen("workbench");
+  }
+
+  $("runSimulation").addEventListener("click", startSimulation);
+  $("runAgain").addEventListener("click", startSimulation);
+  $("backToWorkbench").addEventListener("click", stopAndReturn);
+  $("editAfterRun").addEventListener("click", stopAndReturn);
+  $("stopSimulation").addEventListener("click", stopAndReturn);
+
+  renderRules();
+})();
+</script>
 </body>
 </html>
