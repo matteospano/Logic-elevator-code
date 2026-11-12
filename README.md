@@ -65,6 +65,8 @@ The editable rules are data, not JavaScript entered by the user. The app interpr
 
 The elevator model includes configurable floor and elevator counts, passenger calls and destinations, elevator capacity, travel and door timing, pickup and delivery, and live status reporting. It is intentionally compact: a useful sandbox for exploring cause and effect, not a model of real-world elevator safety or dispatch systems.
 
+Live demo: https://codepen.io/editor/matteospano/pen/01a13fe4-ab0f-7a4b-9beb-9976912a146f
+
 ## Ideas for extending the lab
 
 The same approach can support other simple simulations while keeping the rule language and model manageable:
